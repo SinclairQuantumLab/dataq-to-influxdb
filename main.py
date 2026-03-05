@@ -3,22 +3,21 @@ import requests
 from requests.auth import HTTPDigestAuth
 import time
 import struct
-from config import config  # Import our typed configuration
 
 # --- DI-808 configuration ---
 # loaded from "server_config.yaml" by config.py
-SERVER_URL = config.server.url
-USERNAME = config.auth.username
-PASSWORD = config.auth.password
+SERVER_URL = r"http://dataq1"
+USERNAME = "admin"
+PASSWORD = "admin"
 
 EVENT_NAME = 'apiChannel'
 
 # --- InfluxDB configuration ---
 # 1. Connection Settings
-INFLUXDB_URL = "http://localhost:8086"
+INFLUXDB_URL = "http://synology-nas:8085"
 INFLUXDB_TOKEN = "6tsJ1LgHRYhik5HdRkw2HO5ligoI1X-HOXw-SAsXi-fz5dOqxgX1agvRbrsYd_y_OQdIyj_npdD7V1ReUwJBtw=="  # sinclairgroup_influxdb's admin token
 INFLUXDB_ORG = "sinclairgroup"     # The Organization name you set during initial setup
-INFLUXDB_BUCKET = "test_data"    # Bucket reserved for testing purposes
+INFLUXDB_BUCKET = "imaq"    # main bucket for IMAQ lab
 
 
 def main():

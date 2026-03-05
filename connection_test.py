@@ -4,13 +4,12 @@ import requests
 from requests.auth import HTTPDigestAuth
 import threading
 import time
-from config import config  # Import our typed configuration
 
-# --- Configuration ---
+# --- DI-808 configuration ---
 # loaded from "server_config.yaml" by config.py
-SERVER_URL = config.server.url
-USERNAME = config.auth.username
-PASSWORD = config.auth.password
+SERVER_URL = r"http://dataq1"
+USERNAME = "admin"
+PASSWORD = "admin"
 
 EVENT_NAME = 'apiChannel'
 
