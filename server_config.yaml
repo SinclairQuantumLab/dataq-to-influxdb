@@ -1,0 +1,8 @@
+# Server connection settings
+server:
+  url: "http://dataq1"
+
+# Authentication credentials
+auth:
+  username: "admin"
+  password: "admin"

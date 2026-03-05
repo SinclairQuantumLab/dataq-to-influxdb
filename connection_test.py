@@ -4,11 +4,14 @@ import requests
 from requests.auth import HTTPDigestAuth
 import threading
 import time
+from config import config  # Import our typed configuration
 
 # --- Configuration ---
-SERVER_URL = r'http://dataq1'
-USERNAME = 'user'
-PASSWORD = 'user'
+# loaded from "server_config.yaml" by config.py
+SERVER_URL = config.server.url
+USERNAME = config.auth.username
+PASSWORD = config.auth.password
+
 EVENT_NAME = 'apiChannel'
 
 class TestDI808Connection:
@@ -64,19 +67,23 @@ class TestDI808Connection:
         assert sio_client.connected is True
         print("=> Connected.")
 
+
     def test_02_send_start(self, sio_client, ack_handler):
         """Send 'start' command and check ACK."""
         print("\n[Test 02] Sending 'start' command...")
         payload = {"ApiCall": "start"}
-        
+
         sio_client.emit(EVENT_NAME, payload, callback=ack_handler.callback)
-        
-        # Wait for device response
+
         success = ack_handler.event.wait(timeout=5.0)
         assert success is True, "Device failed to ACK 'start' command"
-        # Adjust 'ApiReturn' check based on actual hardware response (usually 'start')
-        assert "ApiReturn" in ack_handler.container['data']
-        print("=> 'start' command acknowledged.")
+        data = ack_handler.container['data']
+        # 1. Verify that ApiReturn is exactly "start"
+        assert data.get("ApiReturn") == "start"
+        # 2. 🚨 Ensure there is no ApiError in the response for a true success!
+        assert "ApiError" not in data, f"Device returned an error: {data.get('ApiError')}"
+        
+        print("=> 'start' command acknowledged WITHOUT ERRORS.")
 
     def test_03_get_status(self, sio_client, ack_handler):
         """Send 'getStatusState' and check response."""

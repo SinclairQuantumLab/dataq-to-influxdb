@@ -3,11 +3,14 @@ import requests
 from requests.auth import HTTPDigestAuth
 import time
 import struct
+from config import config  # Import our typed configuration
 
 # --- Configuration ---
-SERVER_URL = r'http://192.168.50.83'
-USERNAME = 'admin'
-PASSWORD = 'admin'
+# loaded from "server_config.yaml" by config.py
+SERVER_URL = config.server.url
+USERNAME = config.auth.username
+PASSWORD = config.auth.password
+
 EVENT_NAME = 'apiChannel'
 
 def main():
@@ -17,18 +20,20 @@ def main():
     http_session = requests.Session()
     http_session.auth = HTTPDigestAuth(USERNAME, PASSWORD)
     
-    dummy_resp = http_session.get(f"{SERVER_URL}/configuration/current.general.json")
-    if dummy_resp.status_code != 200:
+    # 1. Trigger HTTP Digest Auth to populate the session with nonce/cookies
+    dummy_resp = http_session.get(f"{SERVER_URL}/") 
+    if dummy_resp.status_code not in (200, 301, 302):
         print(f"Auth Failed: {dummy_resp.status_code}")
         return
 
+    # 2. Simulate a WebSocket GET request to extract the generated headers
     ws_path = "/socket.io/?transport=websocket&EIO=3"
     req = requests.Request('GET', f"{SERVER_URL}{ws_path}")
     prepared = http_session.prepare_request(req)
     
-    # Extract required headers for WebSocket handshake
+    # 3. Filter and store only the required headers for the Socket.IO connection
     custom_headers = {
-        k: prepared.headers.get(k) for k in ['Authorization', 'Cookie'] if prepared.headers.get(k)
+        k: v for k, v in prepared.headers.items() if k in ['Authorization', 'Cookie']
     }
 
     print("2. Connecting to WebSocket...")
