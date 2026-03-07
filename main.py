@@ -1,106 +1,160 @@
+from pprint import pprint
+
 import socketio
 import requests
 from requests.auth import HTTPDigestAuth
 import time
 import struct
 
+# >>> InfluxDB configuration >>>
+import influxdb_client
+from influxdb_client.client.write_api import SYNCHRONOUS
+# Connection Settings
+INFLUXDB_URL = "http://synology-nas:8086"
+INFLUXDB_TOKEN = "64G7IeucCZ_rxxzHakew_qCD7xXV1fibw9ATTYaNZL_tJ2H3orKDFaivDJ4YHEuE1k167xoyo7vtsqr7nUwh5w=="  # sinclairgroup_influxdb's admin token
+INFLUXDB_ORG = "sinclairgroup"     # The Organization name you set during initial setup
+INFLUXDB_BUCKET = "imaq"    # main bucket for IMAQ lab
+# Initialize the InfluxDB Client and the Write API
+INFLUXDB_CLIENT = influxdb_client.InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+INFLUXDB_WRITE_API = INFLUXDB_CLIENT.write_api(write_options=SYNCHRONOUS)
+# <<< InfluxDB configuration <<<
+
+
+
 # --- DI-808 configuration ---
-# loaded from "server_config.yaml" by config.py
+# server and auth
 SERVER_URL = r"http://dataq1"
 USERNAME = "admin"
 PASSWORD = "admin"
-
-EVENT_NAME = 'apiChannel'
-
-# --- InfluxDB configuration ---
-# 1. Connection Settings
-INFLUXDB_URL = "http://synology-nas:8085"
-INFLUXDB_TOKEN = "6tsJ1LgHRYhik5HdRkw2HO5ligoI1X-HOXw-SAsXi-fz5dOqxgX1agvRbrsYd_y_OQdIyj_npdD7V1ReUwJBtw=="  # sinclairgroup_influxdb's admin token
-INFLUXDB_ORG = "sinclairgroup"     # The Organization name you set during initial setup
-INFLUXDB_BUCKET = "imaq"    # main bucket for IMAQ lab
-
-
-def main():
-    print(f"Target Device: {SERVER_URL}")
-    print("1. Authenticating and extracting headers...")
-    
-    http_session = requests.Session()
-    http_session.auth = HTTPDigestAuth(USERNAME, PASSWORD)
-    
-    # 1. Trigger HTTP Digest Auth to populate the session with nonce/cookies
-    dummy_resp = http_session.get(f"{SERVER_URL}/") 
-    if dummy_resp.status_code not in (200, 301, 302):
-        print(f"Auth Failed: {dummy_resp.status_code}")
-        return
-
-    # 2. Simulate a WebSocket GET request to extract the generated headers
-    ws_path = "/socket.io/?transport=websocket&EIO=3"
-    req = requests.Request('GET', f"{SERVER_URL}{ws_path}")
-    prepared = http_session.prepare_request(req)
-    
-    # 3. Filter and store only the required headers for the Socket.IO connection
-    custom_headers = {
-        k: v for k, v in prepared.headers.items() if k in ['Authorization', 'Cookie']
+# channel configuration
+num_channels = 8
+channel_config = {
+        # "channel name": "description"
+        "Ch1": "Gaussmeter 1 Vx",
+        "Ch2": "Gaussmeter 1 Vy",
+        "Ch3": "Gaussmeter 1 Vz",
+        # "Ch4": "", # not in use
+        "Ch5": "Gaussmeter 2 Vx",
+        "Ch6": "Gaussmeter 2 Vy",
+        "Ch7": "Gaussmeter 2 Vz",
+        # "Ch8": "", # not in use
     }
 
-    print("2. Connecting to WebSocket...")
-    sio = socketio.Client(logger=False, engineio_logger=False)
 
-    # Reusable ACK callback handler
-    def make_ack_handler(command_name):
-        return lambda response: print(f"[{time.strftime('%X')}] 📩 ACK for '{command_name}': {response}")
 
-    @sio.event
-    def connect():
-        print(f"\n[{time.strftime('%X')}] SUCCESS: Connected!")
-        start_req = {"ApiCall": "start"}
-        sio.emit(EVENT_NAME, start_req, callback=make_ack_handler("start"))
 
-    @sio.event
-    def disconnect():
-        print(f"\n[{time.strftime('%X')}] DISCONNECTED from server.")
+print(f"Target Device: {SERVER_URL}")
+print("1. Authenticating and extracting headers...")
 
-    @sio.on(EVENT_NAME)
-    def on_api_channel(data):
-        if not isinstance(data, dict):
-            print(f"[{time.strftime('%X')}] ℹ️ UPDATE: {data}")
-            return
+http_session = requests.Session()
+http_session.auth = HTTPDigestAuth(USERNAME, PASSWORD)
 
-        update_type = data.get("ApiUpdate")
-        update_value = data.get("ApiValue")
-        
-        # Monitor device status and trigger data stream when Recording
-        if update_type == "statusState":
-            print(f"[{time.strftime('%X')}] ℹ️ STATE CHANGED TO: {update_value}")
-            if update_value == "Recording":
-                print(f"[{time.strftime('%X')}] 🚀 Requesting Data Stream...")
-                stream_req = {"ApiCall": "streamData", "ApiValue": True}
-                sio.emit(EVENT_NAME, stream_req, callback=make_ack_handler("streamData"))
-        else:
-            print(f"[{time.strftime('%X')}] ℹ️ UPDATE: {data}")
+# 1. Trigger HTTP Digest Auth to populate the session with nonce/cookies
+dummy_resp = http_session.get(f"{SERVER_URL}/") 
+if dummy_resp.status_code not in (200, 301, 302):
+    # print(f"Auth Failed: {dummy_resp.status_code}")
+    raise ConnectionError(f"Authentication failed: {dummy_resp.status_code}. Check credentials and server status.")
 
-    # Dedicated handler for binary data stream
-    @sio.on('sessionDataStream')
-    def on_session_data_stream(data):
-        if isinstance(data, bytes) and len(data) > 0:
-            num_doubles = len(data) // 8
-            try:
-                # Unpack little-endian double precision floats
-                values = struct.unpack(f'<{num_doubles}d', data)
-                formatted_values = [f"{v:.4f}" for v in values]
-                print(f"[{time.strftime('%X')}] 🌊 STREAM: {formatted_values}")
-            except Exception as e:
-                print(f"[{time.strftime('%X')}] Decode Error: {e}")
+# 2. Simulate a WebSocket GET request to extract the generated headers
+ws_path = "/socket.io/?transport=websocket&EIO=3"
+req = requests.Request('GET', f"{SERVER_URL}{ws_path}")
+prepared = http_session.prepare_request(req)
 
+# 3. Filter and store only the required headers for the Socket.IO connection
+custom_headers = {
+    k: v for k, v in prepared.headers.items() if k in ['Authorization', 'Cookie']
+}
+
+print("2. Connecting to WebSocket...")
+sio = socketio.Client(logger=False, engineio_logger=False)
+
+# Reusable ACK callback handler
+def make_ack_handler(command_name):
+    return lambda response: print(f"[{time.strftime('%X')}] 📩 ACK for '{command_name}': {response}")
+
+@sio.event
+def connect():
+    print(f"\n[{time.strftime('%X')}] SUCCESS: Connected!")
+    start_req = {"ApiCall": "start"}
+    sio.emit('apiChannel', start_req, callback=make_ack_handler("start"))
+
+@sio.event
+def disconnect():
+    print(f"\n[{time.strftime('%X')}] DISCONNECTED from server.")
+
+@sio.on('apiChannel')
+def on_api_channel(data):
+    if not isinstance(data, dict):
+        print(f"[{time.strftime('%X')}] ℹ️ UPDATE: {data}")
+        return
+
+    update_type = data.get("ApiUpdate")
+    update_value = data.get("ApiValue")
+    
+    # Monitor device status and trigger data stream when Recording
+    if update_type == "statusState":
+        print(f"[{time.strftime('%X')}] ℹ️ STATE CHANGED TO: {update_value}")
+        if update_value == "Recording":
+            print(f"[{time.strftime('%X')}] 🚀 Requesting Data Stream...")
+            stream_req = {"ApiCall": "streamData", "ApiValue": True}
+            sio.emit('apiChannel', stream_req, callback=make_ack_handler("streamData"))
+    else:
+        print(f"[{time.strftime('%X')}] ℹ️ UPDATE: {data}")
+
+
+# Dedicated handler for binary data stream
+# raise error if exceptions happen three times
+ex_threshold = 3
+ex_count = 0
+@sio.on('sessionDataStream')
+def on_session_data_stream(data):
+    # "data" variable is expected to be a binary blob containing interleaved channel data as little-endian doubles.
+    if isinstance(data, bytes) and len(data) > 0:
+        try:
+            num_doubles = len(data) // 8 # 8 bytes per double precision float
+            if num_doubles != num_channels:
+                raise ValueError(f"Expected {num_channels} channels, but received data for {num_doubles} channels. Data length: {len(data)} bytes.")
+            # Unpack little-endian double precision floats
+            values = struct.unpack(f'<{num_doubles}d', data)
+
+            print(f"[{time.strftime('%X')}] 🌊 STREAM: " + ", ".join(f"{value:>10.6f}" for value in values))
+
+
+            # upload to InfluxDB
+            influxdb_records = [
+                {
+                    "measurement": "dataq_data",  
+                    "tags": {
+                        "equipment": "DATAQ DI-808-32 (SN: 691B1B09)",
+                        "Channel": f"Ch{ich+1}",
+                        "source": "API Stream",
+                        "Description": channel_config.get(f"Ch{ich+1}", "N/A"),
+                    },
+                    "fields": {
+                        "Voltage[V]": values[ich],
+                    },
+                } for ich in range(num_channels) if f"Ch{ich+1}" in channel_config
+            ]
+
+            # pprint(influxdb_records)
+            INFLUXDB_WRITE_API.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=influxdb_records)
+
+        except Exception as ex:
+            print(f"[{time.strftime('%X')}] Error occured: {ex}")
+            global ex_count, ex_threshold
+            if ex_count >= ex_threshold:
+                raise
+            ex_count += 1
+
+try:
+    sio.connect(SERVER_URL, transports=['websocket'], headers=custom_headers)
+    sio.wait()
+except KeyboardInterrupt:
+    print("\n[INFO] KeyboardInterrupt received.")
+finally:
+    print("\n[INFO] Shutting down gracefully...", end=" ")
     try:
-        sio.connect(SERVER_URL, transports=['websocket'], headers=custom_headers)
-        sio.wait()
-    except KeyboardInterrupt:
-        print("\nStopping stream and closing connection...")
-        if sio.connected:
-            sio.disconnect()
-    except Exception as e:
-        print(f"\nConnection Error: {e}")
-
-if __name__ == '__main__':
-    main()
+        sio.disconnect()
+    except:
+        pass
+    print("Done")
