@@ -1,0 +1,30 @@
+#!/bin/bash -i
+# bash script to execute "Startup_bash" script in a new LXTerminal (e.g., in Raspberry Pi OS)
+
+# Title of the new terminal window
+TERM_TITLE="TITLE TEXT"
+# path to the Startup_bash script
+DIR_APP="/path/to/Startup_bash"
+
+
+# string of commands to run in a new terminal
+STR_CMD="cd \"$DIR_APP\"
+if [ ! -d \"$DIR_APP\" ]; then
+    read -p \"Press Enter to continue...\"
+else
+    ./Startup_bash
+
+    if [ \$? -ne 0 ]; then
+        read -p \"Press Enter to continue...\"
+    fi
+fi
+# read -p \"Press Enter to continue...\"
+"
+
+# echo "$STR_CMD"
+# read -p "Press Enter to continue..."
+
+# run the commands in a new terminal
+lxterminal --title="$TERM_TITLE" -e bash -i -c "$STR_CMD"
+
+# read -p "Press Enter to continue..."d
