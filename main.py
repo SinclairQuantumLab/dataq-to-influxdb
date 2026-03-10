@@ -11,7 +11,9 @@ import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
 # Connection Settings
 INFLUXDB_URL = "http://synology-nas:8086"
-INFLUXDB_TOKEN = "64G7IeucCZ_rxxzHakew_qCD7xXV1fibw9ATTYaNZL_tJ2H3orKDFaivDJ4YHEuE1k167xoyo7vtsqr7nUwh5w=="  # sinclairgroup_influxdb's admin token
+INFLUXDB_TOKEN = "xixuoRzjm51D2WQh5uHnqjd0H28NJuaKpiHAmmSzEUlqgUhxRl0A01Na6-a_gX6BENlP3xx8FEoGP-qMx0Xrow=="  # sinclairgroup_influxdb's admin token
+
+
 INFLUXDB_ORG = "sinclairgroup"     # The Organization name you set during initial setup
 INFLUXDB_BUCKET = "imaq"    # main bucket for IMAQ lab
 # Initialize the InfluxDB Client and the Write API
@@ -22,13 +24,15 @@ INFLUXDB_WRITE_API = INFLUXDB_CLIENT.write_api(write_options=SYNCHRONOUS)
 
 
 # --- DI-808 configuration ---
+# measurement equipment info
+EQUIPMENT = "DATAQ DI-808-32 (SN: 691B1B09)"
 # server and auth
 SERVER_URL = r"http://dataq1"
 USERNAME = "admin"
 PASSWORD = "admin"
 # channel configuration
-num_channels = 8
-channel_config = {
+NUM_CHANNELS = 8
+CHANNEL_CONFIG = {
         # "channel name": "description"
         "Ch1": "Gaussmeter 1 Vx",
         "Ch2": "Gaussmeter 1 Vy",
@@ -112,8 +116,8 @@ def on_session_data_stream(data):
     if isinstance(data, bytes) and len(data) > 0:
         try:
             num_doubles = len(data) // 8 # 8 bytes per double precision float
-            if num_doubles != num_channels:
-                raise ValueError(f"Expected {num_channels} channels, but received data for {num_doubles} channels. Data length: {len(data)} bytes.")
+            if num_doubles != NUM_CHANNELS:
+                raise ValueError(f"Expected {NUM_CHANNELS} channels, but received data for {num_doubles} channels. Data length: {len(data)} bytes.")
             # Unpack little-endian double precision floats
             values = struct.unpack(f'<{num_doubles}d', data)
 
@@ -125,15 +129,15 @@ def on_session_data_stream(data):
                 {
                     "measurement": "dataq_data",  
                     "tags": {
-                        "equipment": "DATAQ DI-808-32 (SN: 691B1B09)",
+                        "equipment": EQUIPMENT,
                         "Channel": f"Ch{ich+1}",
                         "source": "API Stream",
-                        "Description": channel_config.get(f"Ch{ich+1}", "N/A"),
+                        "Description": CHANNEL_CONFIG.get(f"Ch{ich+1}", "N/A"),
                     },
                     "fields": {
                         "Voltage[V]": values[ich],
                     },
-                } for ich in range(num_channels) if f"Ch{ich+1}" in channel_config
+                } for ich in range(NUM_CHANNELS) if f"Ch{ich+1}" in CHANNEL_CONFIG
             ]
 
             # pprint(influxdb_records)
