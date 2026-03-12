@@ -1,3 +1,10 @@
+"""
+Stream SensorPush data to InfluxDB.
+
+Successful high-frequency streaming is kept quiet.
+Warnings and errors are logged via supervisor_helper.
+"""
+
 from pprint import pprint
 
 import socketio
@@ -5,6 +12,8 @@ import requests
 from requests.auth import HTTPDigestAuth
 import time
 import struct
+
+from supervisor_helper import log, log_warn, log_error
 
 # >>> InfluxDB configuration >>>
 import influxdb_client
@@ -47,16 +56,15 @@ CHANNEL_CONFIG = {
 
 
 
-print(f"Target Device: {SERVER_URL}")
-print("1. Authenticating and extracting headers...")
+log(f"Target Device: {SERVER_URL}")
+log("1. Authenticating and extracting headers...")
 
 http_session = requests.Session()
 http_session.auth = HTTPDigestAuth(USERNAME, PASSWORD)
 
 # 1. Trigger HTTP Digest Auth to populate the session with nonce/cookies
-dummy_resp = http_session.get(f"{SERVER_URL}/") 
+dummy_resp = http_session.get(f"{SERVER_URL}/")
 if dummy_resp.status_code not in (200, 301, 302):
-    # print(f"Auth Failed: {dummy_resp.status_code}")
     raise ConnectionError(f"Authentication failed: {dummy_resp.status_code}. Check credentials and server status.")
 
 # 2. Simulate a WebSocket GET request to extract the generated headers
@@ -69,41 +77,45 @@ custom_headers = {
     k: v for k, v in prepared.headers.items() if k in ['Authorization', 'Cookie']
 }
 
-print("2. Connecting to WebSocket...")
+log("2. Connecting to WebSocket...")
 sio = socketio.Client(logger=False, engineio_logger=False)
 
 # Reusable ACK callback handler
 def make_ack_handler(command_name):
-    return lambda response: print(f"[{time.strftime('%X')}] 📩 ACK for '{command_name}': {response}")
+    def ack_handler(response):
+        if response not in (None, "", "ok", "OK", True):
+            log_warn(f"ACK for '{command_name}': {response}")
+            log(f"Warning in '{command_name}'. See stderr.")
+    return ack_handler
 
 @sio.event
 def connect():
-    print(f"\n[{time.strftime('%X')}] SUCCESS: Connected!")
+    log("Connected.")
     start_req = {"ApiCall": "start"}
     sio.emit('apiChannel', start_req, callback=make_ack_handler("start"))
 
 @sio.event
 def disconnect():
-    print(f"\n[{time.strftime('%X')}] DISCONNECTED from server.")
+    log_warn("Disconnected from server.")
+    log("Disconnected. See stderr.")
 
 @sio.on('apiChannel')
 def on_api_channel(data):
     if not isinstance(data, dict):
-        print(f"[{time.strftime('%X')}] ℹ️ UPDATE: {data}")
+        log_warn(f"Unexpected apiChannel payload: {data}")
+        log("Unexpected apiChannel payload. See stderr.")
         return
 
     update_type = data.get("ApiUpdate")
     update_value = data.get("ApiValue")
-    
+
     # Monitor device status and trigger data stream when Recording
     if update_type == "statusState":
-        print(f"[{time.strftime('%X')}] ℹ️ STATE CHANGED TO: {update_value}")
+        log(f"State changed to: {update_value}")
         if update_value == "Recording":
-            print(f"[{time.strftime('%X')}] 🚀 Requesting Data Stream...")
+            log("Requesting data stream...")
             stream_req = {"ApiCall": "streamData", "ApiValue": True}
             sio.emit('apiChannel', stream_req, callback=make_ack_handler("streamData"))
-    else:
-        print(f"[{time.strftime('%X')}] ℹ️ UPDATE: {data}")
 
 
 # Dedicated handler for binary data stream
@@ -121,13 +133,10 @@ def on_session_data_stream(data):
             # Unpack little-endian double precision floats
             values = struct.unpack(f'<{num_doubles}d', data)
 
-            print(f"[{time.strftime('%X')}] 🌊 STREAM: " + ", ".join(f"{value:>10.6f}" for value in values))
-
-
             # upload to InfluxDB
             influxdb_records = [
                 {
-                    "measurement": "dataq_data",  
+                    "measurement": "dataq_data",
                     "tags": {
                         "equipment": EQUIPMENT,
                         "Channel": f"Ch{ich+1}",
@@ -144,7 +153,8 @@ def on_session_data_stream(data):
             INFLUXDB_WRITE_API.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=influxdb_records)
 
         except Exception as ex:
-            print(f"[{time.strftime('%X')}] Error occured: {ex}")
+            log_error(f"Error occured: {ex}")
+            log("Streaming/upload error occurred. See stderr.")
             global ex_count, ex_threshold
             if ex_count >= ex_threshold:
                 raise
@@ -154,11 +164,12 @@ try:
     sio.connect(SERVER_URL, transports=['websocket'], headers=custom_headers)
     sio.wait()
 except KeyboardInterrupt:
-    print("\n[INFO] KeyboardInterrupt received.")
+    log("KeyboardInterrupt received.")
 finally:
-    print("\n[INFO] Shutting down gracefully...", end=" ")
+    log("Shutting down gracefully...")
     try:
         sio.disconnect()
-    except:
-        pass
-    print("Done")
+    except Exception as ex:
+        log_warn(f"Error while disconnecting: {ex}")
+        log("Disconnect warning. See stderr.")
+    log("Done")
