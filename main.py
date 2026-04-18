@@ -7,9 +7,11 @@ Warnings and errors are logged via supervisor_helper.
 
 from pprint import pprint
 
+import os
 import socketio
 import requests
 from requests.auth import HTTPDigestAuth
+import sys
 import time
 import struct
 
@@ -37,6 +39,11 @@ CHANNEL_CONFIG = {
         # "Ch8": "", # not in use
     }
 # <<< DI-808 configuration <<<
+
+# >>> app configuration >>>
+EX_THRESHOLD = 3
+print(f"Exception threshold = {EX_THRESHOLD}.")
+# <<< app configuration <<<
 
 # >>> load IMAQ config >>>
 import tomllib
@@ -77,7 +84,13 @@ custom_headers = {
 }
 
 log("2. Connecting to WebSocket...")
-sio = socketio.Client(logger=False, engineio_logger=False)
+sio = socketio.Client(
+    logger=False,
+    engineio_logger=False,
+    reconnection=True,
+    reconnection_delay=1,
+    reconnection_delay_max=5,
+)
 
 # Reusable ACK callback handler
 def make_ack_handler(command_name):
@@ -87,11 +100,33 @@ def make_ack_handler(command_name):
             log(f"Warning in '{command_name}'. See stderr.")
     return ack_handler
 
+
+ex_count = 0
+
+
+def fatal_error(message):
+    log_error(message)
+    log("Fatal error threshold reached. Shutting down.")
+    try:
+        sio.disconnect()
+    except Exception:
+        pass
+    os._exit(1)
+
 @sio.event
 def connect():
     log("Connected.")
     start_req = {"ApiCall": "start"}
     sio.emit('apiChannel', start_req, callback=make_ack_handler("start"))
+
+@sio.event
+def connect_error(data):
+    global ex_count
+    ex_count += 1
+    log_error(f"Socket.IO connection error: {data}")
+    log(f"Connection error count {ex_count}/{EX_THRESHOLD}. See stderr.")
+    if ex_count >= EX_THRESHOLD:
+        fatal_error(f"Reached error threshold {ex_count}/{EX_THRESHOLD} due to connection failures.")
 
 @sio.event
 def disconnect():
@@ -118,9 +153,6 @@ def on_api_channel(data):
 
 
 # Dedicated handler for binary data stream
-# raise error if exceptions happen three times
-ex_threshold = 3
-ex_count = 0
 @sio.on('sessionDataStream')
 def on_session_data_stream(data):
     # "data" variable is expected to be a binary blob containing interleaved channel data as little-endian doubles.
@@ -152,12 +184,12 @@ def on_session_data_stream(data):
             INFLUXDB_WRITE_API.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=influxdb_records)
 
         except Exception as ex:
-            log_error(f"Error occured: {ex}")
-            log("Streaming/upload error occurred. See stderr.")
-            global ex_count, ex_threshold
-            if ex_count >= ex_threshold:
-                raise
+            global ex_count
             ex_count += 1
+            log_error(f"Error occurred: {ex}")
+            log(f"Streaming/upload error count {ex_count}/{EX_THRESHOLD}. See stderr.")
+            if ex_count >= EX_THRESHOLD:
+                fatal_error(f"Reached error threshold {ex_count}/{EX_THRESHOLD}.")
 
 try:
     sio.connect(SERVER_URL, transports=['websocket'], headers=custom_headers)
