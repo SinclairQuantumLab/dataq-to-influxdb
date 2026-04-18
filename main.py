@@ -1,7 +1,7 @@
 """
-Stream SensorPush data to InfluxDB.
+Stream DATAQ DI-808 data to InfluxDB.
 
-Successful high-frequency streaming is kept quiet.
+Reads voltage streams from a DATAQ DI-808 over Socket.IO and uploads them to InfluxDB.
 Warnings and errors are logged via supervisor_helper.
 """
 
@@ -15,24 +15,8 @@ import struct
 
 from supervisor_helper import log, log_warn, log_error
 
-# >>> InfluxDB configuration >>>
-import influxdb_client
-from influxdb_client.client.write_api import SYNCHRONOUS
-# Connection Settings
-INFLUXDB_URL = "http://synology-nas:8086"
-INFLUXDB_TOKEN = "xixuoRzjm51D2WQh5uHnqjd0H28NJuaKpiHAmmSzEUlqgUhxRl0A01Na6-a_gX6BENlP3xx8FEoGP-qMx0Xrow=="  # sinclairgroup_influxdb's admin token
 
-
-INFLUXDB_ORG = "sinclairgroup"     # The Organization name you set during initial setup
-INFLUXDB_BUCKET = "imaq"    # main bucket for IMAQ lab
-# Initialize the InfluxDB Client and the Write API
-INFLUXDB_CLIENT = influxdb_client.InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
-INFLUXDB_WRITE_API = INFLUXDB_CLIENT.write_api(write_options=SYNCHRONOUS)
-# <<< InfluxDB configuration <<<
-
-
-
-# --- DI-808 configuration ---
+# >>> DI-808 configuration >>>
 # measurement equipment info
 EQUIPMENT = "DATAQ DI-808-32 (SN: 691B1B09)"
 # server and auth
@@ -52,8 +36,23 @@ CHANNEL_CONFIG = {
         "Ch7": "Gaussmeter 2 Vz",
         # "Ch8": "", # not in use
     }
+# <<< DI-808 configuration <<<
 
+# >>> load IMAQ config >>>
+import tomllib
+with open("imaq_config/auth.toml", "rb") as f:
+    AUTH = tomllib.load(f)
+# <<< load IMAQ config <<<
 
+# >>> InfluxDB configuration >>>
+import influxdb_client
+from influxdb_client.client.write_api import SYNCHRONOUS
+INFLUXDB_CLIENT = influxdb_client.InfluxDBClient(**AUTH["influxdb"])
+INFLUXDB_WRITE_API = INFLUXDB_CLIENT.write_api(write_options=SYNCHRONOUS)
+INFLUXDB_ORG = AUTH["influxdb"]["org"]; INFLUXDB_BUCKET = AUTH["influxdb"]["bucket"]
+print(f"InfluxDB client initialized for org='{INFLUXDB_ORG}', bucket='{INFLUXDB_BUCKET}'.")
+print()
+# <<< InfluxDB configuration <<<
 
 
 log(f"Target Device: {SERVER_URL}")
