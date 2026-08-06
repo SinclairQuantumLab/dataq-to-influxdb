@@ -45,11 +45,11 @@ EX_THRESHOLD = 3
 print(f"Exception threshold = {EX_THRESHOLD}.")
 # <<< app configuration <<<
 
-# >>> load IMAQ config >>>
+# >>> load IMAQ secret >>>
 import tomllib
-with open("imaq_config/auth.toml", "rb") as f:
+with open("imaq-secret/auth.toml", "rb") as f:
     AUTH = tomllib.load(f)
-# <<< load IMAQ config <<<
+# <<< load IMAQ secret <<<
 
 # >>> InfluxDB configuration >>>
 import influxdb_client

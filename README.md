@@ -13,24 +13,20 @@ A Python app to get the live streams of voltages from the DATAQ DI-808 and push 
 
 ## Installation & setup
 
-1. Clone this repo:
+1. `git clone` this repo to `~/Projects/`:
+  
+    ```bash
+    cd ~/Projects/
+    git clone --recurse-submodules https://github.com/SinclairQuantumLab/dataq-to-influxdb.git 
+    ```
 
-```bash
-git clone https://github.com/SinclairQuantumLab/dataq-to-influxdb.git
-cd dataq-to-influxdb
-```
-
-2. Clone the private `imaq_config` repo into the project root:
-
-```bash
-git clone https://github.com/SinclairQuantumLab/imaq_config.git imaq_config
-```
+    > **NOTE**: the `--recurse-submodules` option clones [`imaq-secret`](https://github.com/SinclairQuantumLab/imaq-secret.git) repo for the credential to access to our InfluxDB together at the right location in this repo.
 
 3. Install dependencies and sync with `uv`:
 
-```bash
-uv sync
-```
+    ```bash
+    uv sync
+    ```
 
 4. Open `main.py` and set DI-808 values:
    - `SERVER_URL`
