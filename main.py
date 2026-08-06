@@ -15,7 +15,7 @@ import sys
 import time
 import struct
 
-from supervisor_helper import log, log_warn, log_error
+from supervisor.supervisor_helper import log, log_warn, log_error
 
 
 # >>> DI-808 configuration >>>
