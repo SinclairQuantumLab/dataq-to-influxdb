@@ -9,9 +9,11 @@ import tomllib
 # --- DI-808 configuration ---
 with open("settings.toml", "rb") as f:
     SETTINGS = tomllib.load(f)
+with open("imaq-secret/auth.toml", "rb") as f:
+    AUTH = tomllib.load(f)
 SERVER_URL = SETTINGS["dataq"]["server_url"]
-USERNAME = SETTINGS["dataq"]["username"]
-PASSWORD = SETTINGS["dataq"]["password"]
+USERNAME = AUTH["dataq"]["username"]
+PASSWORD = AUTH["dataq"]["password"]
 
 EVENT_NAME = 'apiChannel'
 

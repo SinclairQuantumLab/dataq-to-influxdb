@@ -7,8 +7,6 @@ reconnection_delay_max_s = 5
 [dataq]
 equipment = "DATAQ DI-808-32 (SN: 691B1B09)"
 server_url = "http://dataq1"
-username = ""
-password = ""
 num_channels = 8
 
 # Uncomment only the channels that are in use and set their descriptions.

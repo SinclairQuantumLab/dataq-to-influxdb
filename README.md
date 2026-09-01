@@ -34,8 +34,9 @@ A Python app to get the live streams of voltages from the DATAQ DI-808 and push 
     cp settings.toml.template settings.toml
     ```
 
-   Set the DATAQ equipment, server, credentials, and channel map in
-   `settings.toml`. Channels omitted from `[dataq.channels]` are not uploaded.
+   Set the DATAQ equipment, server, and channel map in `settings.toml`.
+   Channels omitted from `[dataq.channels]` are not uploaded. DATAQ credentials
+   are read from `[dataq]` in the private `imaq-secret/auth.toml` file.
    Root settings control the exception threshold and reconnection delays.
    The local `settings.toml` file is ignored by Git.
 

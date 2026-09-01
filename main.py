@@ -27,8 +27,6 @@ with open("settings.toml", "rb") as f:
 EQUIPMENT = SETTINGS["dataq"]["equipment"]
 # server
 SERVER_URL = SETTINGS["dataq"]["server_url"]
-USERNAME = SETTINGS["dataq"]["username"]
-PASSWORD = SETTINGS["dataq"]["password"]
 # channel configuration
 NUM_CHANNELS = SETTINGS["dataq"]["num_channels"]
 CHANNEL_CONFIG = SETTINGS["dataq"]["channels"]
@@ -44,6 +42,8 @@ print(f"Exception threshold = {EX_THRESHOLD}.")
 # >>> load IMAQ secret >>>
 with open("imaq-secret/auth.toml", "rb") as f:
     AUTH = tomllib.load(f)
+USERNAME = AUTH["dataq"]["username"]
+PASSWORD = AUTH["dataq"]["password"]
 # <<< load IMAQ secret <<<
 
 # >>> InfluxDB configuration >>>
