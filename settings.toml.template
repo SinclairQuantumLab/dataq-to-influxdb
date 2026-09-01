@@ -1,0 +1,24 @@
+# Copy this file to settings.toml and set the deployment-specific values.
+
+ex_threshold = 3
+reconnection_delay_s = 1
+reconnection_delay_max_s = 5
+
+[dataq]
+equipment = "DATAQ DI-808-32 (SN: 691B1B09)"
+server_url = "http://dataq1"
+username = ""
+password = ""
+num_channels = 8
+
+# Uncomment only the channels that are in use and set their descriptions.
+# Each description is written to the `Description` tag in InfluxDB.
+[dataq.channels]
+# Ch1 = ""
+# Ch2 = ""
+# Ch3 = ""
+# Ch4 = ""
+# Ch5 = ""
+# Ch6 = ""
+# Ch7 = ""
+# Ch8 = ""

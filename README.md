@@ -28,12 +28,16 @@ A Python app to get the live streams of voltages from the DATAQ DI-808 and push 
     uv sync
     ```
 
-4. Open `main.py` and set DI-808 values:
-   - `SERVER_URL`
-   - `USERNAME`
-   - `PASSWORD`
-   - `EQUIPMENT`
-   - `CHANNEL_CONFIG`
+4. Copy the settings template and edit the local settings:
+
+    ```bash
+    cp settings.toml.template settings.toml
+    ```
+
+   Set the DATAQ equipment, server, credentials, and channel map in
+   `settings.toml`. Channels omitted from `[dataq.channels]` are not uploaded.
+   Root settings control the exception threshold and reconnection delays.
+   The local `settings.toml` file is ignored by Git.
 
 ## How to run
 
@@ -52,6 +56,7 @@ uv run main.py
 ## Setup notes
 
 
-- `main.py` contains the DI-808 connection and channel settings.
+- `settings.toml` contains the DI-808 connection, channel, exception threshold,
+  and reconnection settings.
 - `Startup_bash` launches the app from the project directory and activates the virtual environment.
 - `dataq-to-influxdb.conf` is an optional Supervisor config sample.

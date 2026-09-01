@@ -2,12 +2,14 @@ import socketio
 import requests
 from requests.auth import HTTPDigestAuth
 import time
+import tomllib
 
 # --- Configuration ---
-# DO NOT CHANGE THESE VALUES
-SERVER_URL = r'http://dataq1'
-USERNAME = 'user'
-PASSWORD = 'user'
+with open("settings.toml", "rb") as f:
+    SETTINGS = tomllib.load(f)
+SERVER_URL = SETTINGS["dataq"]["server_url"]
+USERNAME = SETTINGS["dataq"]["username"]
+PASSWORD = SETTINGS["dataq"]["password"]
 EVENT_NAME = 'apiChannel'
 
 def main():

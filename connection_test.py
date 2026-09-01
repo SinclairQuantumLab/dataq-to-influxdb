@@ -4,12 +4,14 @@ import requests
 from requests.auth import HTTPDigestAuth
 import threading
 import time
+import tomllib
 
 # --- DI-808 configuration ---
-# loaded from "server_config.yaml" by config.py
-SERVER_URL = r"http://dataq1"
-USERNAME = "admin"
-PASSWORD = "admin"
+with open("settings.toml", "rb") as f:
+    SETTINGS = tomllib.load(f)
+SERVER_URL = SETTINGS["dataq"]["server_url"]
+USERNAME = SETTINGS["dataq"]["username"]
+PASSWORD = SETTINGS["dataq"]["password"]
 
 EVENT_NAME = 'apiChannel'
 

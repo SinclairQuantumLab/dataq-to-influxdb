@@ -14,39 +14,34 @@ from requests.auth import HTTPDigestAuth
 import sys
 import time
 import struct
+import tomllib
 
 from supervisor.supervisor_helper import log, log_warn, log_error
 
 
 # >>> DI-808 configuration >>>
+with open("settings.toml", "rb") as f:
+    SETTINGS = tomllib.load(f)
+
 # measurement equipment info
-EQUIPMENT = "DATAQ DI-808-32 (SN: 691B1B09)"
-# server and auth
-SERVER_URL = r"http://dataq1"
-USERNAME = "admin"
-PASSWORD = "admin"
+EQUIPMENT = SETTINGS["dataq"]["equipment"]
+# server
+SERVER_URL = SETTINGS["dataq"]["server_url"]
+USERNAME = SETTINGS["dataq"]["username"]
+PASSWORD = SETTINGS["dataq"]["password"]
 # channel configuration
-NUM_CHANNELS = 8
-CHANNEL_CONFIG = {
-        # "channel name": "description"
-        "Ch1": "Gaussmeter 1 Vx",
-        "Ch2": "Gaussmeter 1 Vy",
-        "Ch3": "Gaussmeter 1 Vz",
-        # "Ch4": "", # not in use
-        "Ch5": "Gaussmeter 2 Vx",
-        "Ch6": "Gaussmeter 2 Vy",
-        "Ch7": "Gaussmeter 2 Vz",
-        # "Ch8": "", # not in use
-    }
+NUM_CHANNELS = SETTINGS["dataq"]["num_channels"]
+CHANNEL_CONFIG = SETTINGS["dataq"]["channels"]
 # <<< DI-808 configuration <<<
 
 # >>> app configuration >>>
-EX_THRESHOLD = 3
+EX_THRESHOLD = SETTINGS["ex_threshold"]
+RECONNECTION_DELAY_s = SETTINGS["reconnection_delay_s"]
+RECONNECTION_DELAY_MAX_s = SETTINGS["reconnection_delay_max_s"]
 print(f"Exception threshold = {EX_THRESHOLD}.")
 # <<< app configuration <<<
 
 # >>> load IMAQ secret >>>
-import tomllib
 with open("imaq-secret/auth.toml", "rb") as f:
     AUTH = tomllib.load(f)
 # <<< load IMAQ secret <<<
@@ -88,8 +83,8 @@ sio = socketio.Client(
     logger=False,
     engineio_logger=False,
     reconnection=True,
-    reconnection_delay=1,
-    reconnection_delay_max=5,
+    reconnection_delay=RECONNECTION_DELAY_s,
+    reconnection_delay_max=RECONNECTION_DELAY_MAX_s,
 )
 
 # Reusable ACK callback handler

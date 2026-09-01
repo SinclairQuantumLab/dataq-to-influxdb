@@ -1,6 +1,9 @@
 # IMAQ Lab secret repo
 imaq-secret/*
 
+# Local application settings
+settings.toml
+
 # Python-generated files
 __pycache__/
 *.py[oc]
